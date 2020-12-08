@@ -1,0 +1,100 @@
+---
+- name: "Installing APACHE & PHP"
+  yum:
+    name:        
+      - httpd
+      - php
+      - php-mysql  
+    state: present
+  notify:
+    - restart-httpd        
+
+- name: "Apache Copying httpd.conf file"
+  template:
+    src: 8httpd.conf
+    dest: /etc/httpd/conf/httpd.conf
+    owner: "{{ httpd_owner }}"
+    group: "{{ httpd_group }}"
+  notify:
+    - restart-httpd  
+
+- name: "Apache Creating Virtual Hosts"
+  template: 
+    src: 8virtualhost.conf
+    dest: "/etc/httpd/conf.d/{{httpd_domain}}.conf"
+    owner: "{{ httpd_owner }}"
+    group: "{{ httpd_group }}"    
+  notify:
+    - restart-httpd        
+            
+    
+- name: "Creating Document Root"
+  file:
+    path: "/var/www/html/{{httpd_domain}}/"
+    state: directory
+    owner: "{{ httpd_owner }}"
+    group: "{{ httpd_group }}" 
+  notify:
+    - restart-httpd
+                
+
+- name: "Apache copying - test.php and test.html" 
+  copy:
+    src: "{{ item }}" 
+    dest: "/var/www/html/{{ httpd_domain }}"
+    owner: "{{ httpd_owner }}"
+    group: "{{ httpd_group }}"       
+  with_items: 
+    - test.php
+    - test.html   
+  notify:
+    - restart-httpd
+
+
+- name: "MariaDB server Installation"
+  yum: 
+    name:
+      - mariadb-server
+      - MySQL-python
+    state: present
+    
+- name: "MariaDB server Restarting / Enable"
+  service: 
+    name: mariadb
+    state: restarted
+    enabled: true
+    
+
+- name: "MariaDB server reset root password" 
+  ignore_errors: true
+  mysql_user:
+    login_user: "root"
+    login_password: ""
+    name: "root"
+    password: "{{ mariadb_root }}"
+    host_all: true
+
+- name: "Mariadb server removing anonymous users" 
+  mysql_user: 
+    login_user: "root"
+    login_password: "{{ mariadb_root }}" 
+    name: ""
+    state: absent
+    host_all: true
+ 
+- name: "Mariadb creating extra Database"
+  mysql_db:
+    login_user: "root"
+    login_password: "{{ mariadb_root }}"
+    name: "{{ mariadb_database }}"
+    state: present
+
+- name: "Mariadb-server - Creating Extra User"
+  mysql_user:
+    login_user: "root"
+    login_password: "{{ mariadb_root }}"
+    name: "{{ mariadb_user }}"
+    password: "{{ mariadb_password }}"
+    state: present
+    priv: "{{ mariadb_database }}.*:ALL" 
+
